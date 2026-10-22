@@ -1,0 +1,18 @@
+[package]
+name = "pgorm-macros"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Derive macros for the PostgreSQL-only pgorm library"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/CC-Cheunggg/pgorm"
+publish = false
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
+proc-macro-crate = "3"

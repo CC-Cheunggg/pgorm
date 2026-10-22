@@ -1,0 +1,48 @@
+[workspace]
+members = ["pgorm-macros"]
+resolver = "3"
+
+[package]
+name = "pgorm"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/CC-Cheunggg/pgorm"
+description = "A small PostgreSQL-only, SQL-first ORM on rust-postgres, deadpool and tracing"
+
+[features]
+default = ["derive", "native-tls"]
+derive = ["dep:pgorm-macros"]
+native-tls = ["dep:native-tls", "dep:postgres-native-tls"]
+with-uuid = ["tokio-postgres/with-uuid-1"]
+with-chrono = ["tokio-postgres/with-chrono-0_4"]
+with-json = ["tokio-postgres/with-serde_json-1"]
+
+[dependencies]
+deadpool-postgres = "0.14.2"
+tokio-postgres = "0.7.18"
+tracing = "0.1.44"
+thiserror = "2"
+pgorm-macros = { path = "pgorm-macros", optional = true }
+native-tls = { version = "0.2", optional = true }
+postgres-native-tls = { version = "0.5", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+uuid = { version = "1", features = ["v4"] }
+chrono = "0.4"
+serde_json = "1"
+
+[[example]]
+name = "basic"
+required-features = ["derive", "native-tls"]
+
+[[test]]
+name = "postgres"
+required-features = ["derive", "native-tls", "with-uuid", "with-json", "with-chrono"]
+
+[lints.rust]
+unsafe_code = "forbid"

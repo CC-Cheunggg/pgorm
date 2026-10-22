@@ -1,0 +1,12 @@
+[package]
+name = "pgorm-renamed-derive-check"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Keep the compile fixture isolated, without a cyclic macro dev dependency.
+[workspace]
+
+[dependencies]
+type = { package = "pgorm", path = "../../../..", default-features = false }
+pgorm-macros = { path = "../../.." }
