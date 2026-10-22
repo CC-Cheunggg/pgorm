@@ -7,7 +7,6 @@
 ```sh
 mkdir -p .github/workflows
 git mv ci/postgres.yml .github/workflows/ci.yml
-git add .github/workflows/ci.yml ci/postgres.yml
 git commit -m "Enable PostgreSQL CI"
 git push
 ```
