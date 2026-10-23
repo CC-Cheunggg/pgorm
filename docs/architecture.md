@@ -8,7 +8,7 @@ pgorm 是一个仅支持 PostgreSQL、以 SQL 为中心的轻量 ORM crate。我
 
 本项目以独立公开仓库 [CC-Cheunggg/pgorm](https://github.com/CC-Cheunggg/pgorm) 开发，未复用 rbatis 的 Git 历史或源码。尚未发布到 crates.io，API 兼容性承诺尚未确定。
 
-第一阶段优先打通明确、可测试的 PostgreSQL 数据访问路径。协议、认证、连接、类型编解码、连接池调度和日志基础设施交给成熟依赖；本项目负责薄的调用接口、实体映射和必要的 CRUD SQL 生成。
+第一阶段以 `html_sql` / XML 动态 SQL 为核心。协议、认证、连接、类型编解码、连接池调度和日志基础设施交给成熟依赖；本项目负责 XML 模板编译、参数收集、实体映射和必要的 CRUD SQL 生成。
 
 ## 依赖选择
 
@@ -18,7 +18,7 @@ pgorm 是一个仅支持 PostgreSQL、以 SQL 为中心的轻量 ORM crate。我
 | 连接池 | `deadpool-postgres 0.14.2` | 直接集成 `tokio-postgres`，提供连接管理、超时配置、池状态和预编译语句缓存。无需维护自有连接池。 |
 | 结构化日志 | `tracing 0.1.44` | 使用 Tokio 生态的事件和 span，方便接入应用已有的过滤、输出与追踪设施。库只产生诊断信息。 |
 | TLS | `native-tls` + `postgres-native-tls` | 使用成熟 TLS 实现和 rust-postgres 的适配器，不编写证书校验或加密逻辑。 |
-| 派生宏 | `syn` + `quote` | 只解析实体声明并生成映射代码，不创建运行时脚本或 SQL 模板语言。 |
+| 宏与 XML | `syn` + `quote` + `roxmltree` | XML 解析交给 roxmltree，Rust 表达式交给 syn；生成条件、循环、参数绑定和映射代码，不创建运行时脚本解释器或动态值系统。 |
 
 上述版本是本次选型记录，实际解析版本以 `Cargo.lock` 为准。声明的最低 Rust 版本为 1.85、edition 2024，与所选驱动对齐；本地验证使用 Rust 1.95。[驱动仓库](https://github.com/rust-postgres/rust-postgres)、[驱动 Cargo.toml](https://github.com/rust-postgres/rust-postgres/blob/master/tokio-postgres/Cargo.toml)、[deadpool-postgres 文档](https://docs.rs/deadpool-postgres/latest/deadpool_postgres/)、[tracing 文档](https://docs.rs/tracing/latest/tracing/)
 
@@ -30,10 +30,11 @@ pgorm 是一个仅支持 PostgreSQL、以 SQL 为中心的轻量 ORM crate。我
 
 调用路径为：应用 → pgorm 的 SQL / 实体操作 → deadpool-postgres 连接或事务 → tokio-postgres → PostgreSQL。
 
-`pgorm` 提供运行时 API；`pgorm-macros` 提供可选派生宏。实体映射与 SQL 生成不依赖具体池调度实现，连接与事务共用尽可能一致的执行方式。保留原始 SQL 路径，使应用能直接使用 PostgreSQL 能力，而不必等待 ORM 扩展抽象。
+`pgorm` 提供运行时 API；`pgorm-macros` 提供可选的 XML 属性宏和派生宏，默认由 `derive` feature 启用。XML 在编译时解析，模板条件与参数引用作为 Rust 代码接受类型检查；运行时只构建 SQL 字符串并收集原生 `ToSql` 参数。实体映射与 SQL 生成不依赖具体池调度实现，连接与事务共用 `Executor`。保留原始 SQL 路径，使应用能直接使用 PostgreSQL 能力。
 
 初版目标包括：
 
+- **XML SQL**：外部文件、内联 XML、动态条件与循环、可复用片段、空集合和空更新检查、独立预览；具体规则见 [XML 指南](xml.md)。外部文件通过生成的 `include_str!` 进入 Cargo 依赖追踪，跨文件片段同样跟踪。数据库 SQL 语法、表结构和类型匹配仍在执行时由 PostgreSQL 检查。
 - **SQL 参数绑定**：沿用 PostgreSQL `$1`、`$2` 等占位符与驱动的 `ToSql`，值通过绑定传入，不插值拼接。调用者编写的原始 SQL 仍由调用者负责；绑定参数不能代替表名、列名等 SQL 标识符。
 - **`FromRow` 与 `Entity`**：将查询行映射到 Rust 结构体，并声明实体的表、列及单一主键。复用驱动的类型转换能力；不引入通用动态值系统。
 - **基础 CRUD**：基于实体元数据生成简单的增、查、改、删语句。操作语义和字段要求以公开 API、示例与测试为准，不承诺完整兼容 rbatis。
@@ -68,8 +69,8 @@ deadpool 的池创建本身不会验证数据库可达性，因此默认的 `con
 
 ## 明确不包含的能力
 
-第一阶段不支持多数据库适配、`py_sql` / `html_sql` 模板、迁移管理、关联关系加载、复合主键和自动重试。也不承诺 rbatis API 或宏的兼容性。
+第一阶段不支持多数据库适配、`py_sql`、迁移管理、关联关系加载、复合主键和自动重试。也不承诺 rbatis API 或模板的兼容性。
 
 自动重试尤其需要业务语义：连接失败、事务冲突和提交结果不确定并不能统一当作可重试操作。初版向调用者返回错误，由应用决定恢复方式。
 
-后续按实际使用需求扩展。先验证真实业务中的实体映射、事务边界、分页和运行诊断，再决定是否加入批量操作、更多 PostgreSQL 类型、游标分页或其他能力；不为未来数据库、模板系统或插件框架提前增加层次。
+后续按实际使用需求扩展。围绕 XML 编写 SQL 的体验持续完善诊断、编辑器支持和测试工具；其他 PostgreSQL 能力在真实业务需求驱动下加入。

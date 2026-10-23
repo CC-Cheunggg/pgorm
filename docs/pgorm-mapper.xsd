@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="unqualified">
+  <xs:annotation><xs:documentation>
+    pgorm XML mapper authoring schema. Rust expressions and SQL semantics are
+    checked by the macro/Rust compiler and PostgreSQL respectively.
+  </xs:documentation></xs:annotation>
+  <xs:group name="dynamic">
+    <xs:choice>
+      <xs:element name="if" type="condition"/>
+      <xs:element name="choose" type="choice"/>
+      <xs:element name="where" type="body"/>
+      <xs:element name="set" type="body"/>
+      <xs:element name="trim" type="trim"/>
+      <xs:element name="foreach" type="loop"/>
+      <xs:element name="bind" type="binding"/>
+      <xs:element name="include" type="inclusion"/>
+    </xs:choice>
+  </xs:group>
+  <xs:complexType name="body" mixed="true">
+    <xs:group ref="dynamic" minOccurs="0" maxOccurs="unbounded"/>
+  </xs:complexType>
+  <xs:complexType name="statement" mixed="true">
+    <xs:complexContent mixed="true"><xs:extension base="body">
+      <xs:attribute name="id" type="xs:string" use="required"/>
+    </xs:extension></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="condition" mixed="true">
+    <xs:complexContent mixed="true"><xs:extension base="body">
+      <xs:attribute name="test" type="xs:string" use="required"/>
+    </xs:extension></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="choice">
+    <xs:sequence>
+      <xs:element name="when" type="condition" maxOccurs="unbounded"/>
+      <xs:element name="otherwise" type="body" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="trim" mixed="true">
+    <xs:complexContent mixed="true"><xs:extension base="body">
+      <xs:attribute name="prefix" type="xs:string"/>
+      <xs:attribute name="suffix" type="xs:string"/>
+      <xs:attribute name="prefixOverrides" type="xs:string"/>
+      <xs:attribute name="suffixOverrides" type="xs:string"/>
+    </xs:extension></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="loop" mixed="true">
+    <xs:complexContent mixed="true"><xs:extension base="body">
+      <xs:attribute name="collection" type="xs:string" use="required"/>
+      <xs:attribute name="item" type="xs:string" use="required"/>
+      <xs:attribute name="index" type="xs:string"/>
+      <xs:attribute name="open" type="xs:string"/>
+      <xs:attribute name="close" type="xs:string"/>
+      <xs:attribute name="separator" type="xs:string"/>
+      <xs:attribute name="empty" default="error">
+        <xs:simpleType><xs:restriction base="xs:string">
+          <xs:enumeration value="error"/><xs:enumeration value="skip"/>
+        </xs:restriction></xs:simpleType>
+      </xs:attribute>
+    </xs:extension></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="binding">
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="value" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="inclusion">
+    <xs:attribute name="refid" type="xs:string" use="required"/>
+    <xs:attribute name="file" type="xs:string"/>
+  </xs:complexType>
+  <xs:element name="mapper">
+    <xs:complexType>
+      <xs:choice maxOccurs="unbounded">
+        <xs:element name="select" type="statement"/>
+        <xs:element name="insert" type="statement"/>
+        <xs:element name="update" type="statement"/>
+        <xs:element name="delete" type="statement"/>
+        <xs:element name="sql" type="statement"/>
+      </xs:choice>
+      <xs:attribute name="namespace" type="xs:string"/>
+      <xs:anyAttribute namespace="http://www.w3.org/2001/XMLSchema-instance" processContents="lax"/>
+    </xs:complexType>
+    <xs:unique name="unique_mapper_ids"><xs:selector xpath="*"/><xs:field xpath="@id"/></xs:unique>
+  </xs:element>
+</xs:schema>

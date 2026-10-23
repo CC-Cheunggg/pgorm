@@ -1,4 +1,4 @@
-# 第一阶段验证记录
+# 第一阶段与 XML SQL 验证记录
 
 日期：2026-10-23（Asia/Shanghai）。本地环境：macOS Apple Silicon，Rust / Cargo 1.95.0，PostgreSQL 18.6。
 
@@ -11,12 +11,27 @@
 | `cargo fmt --all -- --check` | 通过 |
 | `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings` | 通过，无警告 |
 | `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --no-deps --locked` | 通过 |
-| `cargo test --workspace --all-features --locked -- --include-ignored` | 28 项测试通过，0 项跳过 |
-| 宏独立 fixture | 1 项运行测试和 4 项 compile-fail doctest 通过 |
+| `cargo test --workspace --all-features --locked -- --include-ignored` | 80 项测试通过，0 项跳过 |
+| 宏独立 fixture | 2 项运行测试和 13 项 compile-fail doctest 通过 |
 | `RUST_LOG=debug cargo run --example basic --locked` | 实际连接 PostgreSQL，CRUD / 事务 / 分页正常；输出 pgorm 元数据日志 |
+| `cargo run --example xml --locked` | 实际连接 PostgreSQL，XML 查询 / INSERT RETURNING / 部分更新 / 事务正常 |
+| `xmllint --noout --schema docs/pgorm-mapper.xsd ...` | XML 示例及 3 个外部测试 mapper 均通过 schema 验证 |
+| XML 文件依赖跟踪 | 独立调用 crate 不修改 Rust，只修改 include 文件，再修改根 mapper；再次 `cargo run` 均得到新 SQL |
 | `cargo tree --all-features` 依赖检查 | 不含 rbatis / rbdc / rbs / fast_pool / fast_log |
 
-合计 33 项测试：2 项运行库单元测试、11 项派生宏单元测试、15 项 PostgreSQL 集成测试、5 项宏编译/运行 fixture。
+合计 95 项测试：16 项运行库单元测试、25 项宏单元测试、19 项 XML 渲染测试、20 项 PostgreSQL 集成测试、15 项宏编译/运行 fixture。另有上述示例、XML schema 和增量重编译检查。
+
+## XML 场景
+
+- 外部 / 内联 XML、默认和显式 statement id、跨文件 include、CDATA、SQL 字面量和注释。
+- if / choose、where / set / trim、bind、嵌套 foreach、过滤后的分隔符、集合重复使用及空集合策略。
+- 条件分支的参数编号、重复 String、表达式临时值、借用值、泛型函数、类型化标识符。
+- token 边界与注释修剪；静态 include / XML 文本分段先合并词法分析，动态 if / choose / bind / foreach 边界不误拼成注释。
+- 非 ASCII 美元引号标签、引号内伪占位符、单行 / 嵌套块注释、空更新及参数数量上限。
+- 重复 id、错误元素 / 属性、缺失或循环 include、错误表达式、未定义变量、错误标识符类型、手写参数编号及 DTD 在编译时失败。
+- 真实 PostgreSQL 中对照原生 SQL，验证动态筛选 / IN 列表、NULL、RETURNING、单行 / 可选行 / 影响行数 / unit 返回、事务和 SQLSTATE。
+
+增量重编译检查的独立 crate 初次输出 `SELECT 1`；仅将被引用片段从 `1` 改为 `2`，第二次输出 `SELECT 2`；仅给根 mapper 加别名，第三次输出 `SELECT 2 AS changed`。未清理 target、未改动 Rust 源文件。
 
 ## 数据库场景
 

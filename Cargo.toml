@@ -10,7 +10,7 @@ rust-version = "1.85"
 publish = false
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/CC-Cheunggg/pgorm"
-description = "A small PostgreSQL-only, SQL-first ORM on rust-postgres, deadpool and tracing"
+description = "Compile-time XML SQL mappers for PostgreSQL on rust-postgres, deadpool and tracing"
 
 [features]
 default = ["derive", "native-tls"]
@@ -38,6 +38,10 @@ serde_json = "1"
 
 [[example]]
 name = "basic"
+required-features = ["derive", "native-tls"]
+
+[[example]]
+name = "xml"
 required-features = ["derive", "native-tls"]
 
 [[test]]

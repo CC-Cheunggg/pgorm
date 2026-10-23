@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+  <sql id="user_columns">id, name, active</sql>
+  <sql id="dash">-</sql>
+  <sql id="slash">/</sql>
+  <sql id="dollar_start">$q</sql>
+  <sql id="escape_prefix">E</sql>
+</mapper>

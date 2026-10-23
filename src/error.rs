@@ -18,6 +18,14 @@ pub enum Error {
     NoUpdateColumns,
     #[error("SQL identifiers must be nonempty and contain no NUL bytes")]
     InvalidIdentifier,
+    #[error("SQL template collection `{0}` must not be empty")]
+    EmptyCollection(&'static str),
+    #[error("SQL template SET clause must contain at least one assignment")]
+    EmptySet,
+    #[error("SQL template produced an empty statement")]
+    EmptySql,
+    #[error("PostgreSQL statements support at most 65535 bind parameters")]
+    TooManyParameters,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

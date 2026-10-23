@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Mapper files are parsed at Rust compilation time. -->
+<mapper>
+  <sql id="base_select">SELECT <include file="columns.xml" refid="user_columns"/> FROM users</sql>
+  <select id="find_users">
+    <include refid="base_select"/>
+    <where>
+      <if test="active">AND active = #{active}</if>
+      <if test="name.is_some()">AND name = #{name.as_ref().unwrap()}</if>
+    </where>
+    ORDER BY id
+  </select>
+  <select id="default_statement">SELECT #{value}::BIGINT AS value</select>
+  <select id="find_ids">
+    SELECT id FROM users WHERE id IN
+    <foreach collection="ids" item="id" open="(" close=")" separator=",">#{id}</foreach>
+  </select>
+  <select id="fragment_comment">SELECT 1 <include file="columns.xml" refid="dash"/>- #{value}
+, #{value}</select>
+  <select id="fragment_block_comment">SELECT 1 <include file="columns.xml" refid="slash"/>* #{value} *<include file="columns.xml" refid="slash"/>, #{value}</select>
+  <select id="fragment_dollar_quote">SELECT <include file="columns.xml" refid="dollar_start"/>$#{value}$q$, #{value}</select>
+  <select id="fragment_escape_string">SELECT <include file="columns.xml" refid="escape_prefix"/>'it\'s #{value}', #{value}</select>
+</mapper>

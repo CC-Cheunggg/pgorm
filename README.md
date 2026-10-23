@@ -1,13 +1,17 @@
 # pgorm
 
-仅支持 PostgreSQL、以 SQL 为中心的 Rust ORM 初版。协议、认证、类型编码、连接池和日志基础设施直接复用社区组件。
+以 `html_sql` / XML 编写 SQL 的 PostgreSQL Rust ORM。XML 在编译期转换为 Rust 条件、循环和参数绑定代码，运行时无需重新解析 XML。协议、认证、类型编码、连接池和日志基础设施直接复用社区组件。
 
-**参考项目：[rbatis/rbatis](https://github.com/rbatis/rbatis)。** 本项目参考 rbatis 的 SQL 优先、实体映射和便捷 CRUD 设计思路，感谢原项目提供的启发。pgorm 的代码独立实现，未复制 rbatis 源码，也不依赖 rbatis / rbdc / rbs / fast_pool / fast_log。
+**参考项目：[rbatis/rbatis](https://github.com/rbatis/rbatis)。** 本项目参考 rbatis 的 `html_sql` / XML 动态 SQL、实体映射和便捷 CRUD 设计思路，感谢原项目提供的启发。pgorm 的代码独立实现，未复制 rbatis 源码，也不依赖 rbatis / rbdc / rbs / fast_pool / fast_log。
 
 项目仓库：[CC-Cheunggg/pgorm](https://github.com/CC-Cheunggg/pgorm)。这是独立实现的公开项目，目前处于 0.1 开发阶段，暂不承诺 API 稳定性或 rbatis 兼容性。尚未发布到 crates.io，两个 package 均保留 `publish = false`。
 
 ## 已实现
 
+- `#[html_sql("sql/users.xml")]`：外部 XML / 内联模板，编译期解析与检查；文件修改自动触发重编译。
+- `if`、`choose/when/otherwise`、`where`、`set`、`trim`、`foreach`、`bind`、同文件及跨文件 `include`。
+- `#{expr}` 原生参数绑定、`${identifier}` 类型化标识符；条件和表达式直接由 Rust 检查。
+- 不连接数据库的 `BoundSql` 预览、明确的空集合 / 空更新错误、XML 文件行列诊断和编辑器 XSD。
 - `tokio-postgres` 驱动、原生 `$1` 参数绑定及 `ToSql` / `FromSql`。
 - `deadpool-postgres` 连接池、健康检查、超时和预编译语句缓存。
 - `FromRow` / `Entity` 派生宏，按列名读取，不经过 JSON 或动态值中转。
@@ -15,7 +19,7 @@
 - 借用式事务，显式 commit / rollback，驱动管理 drop 回滚。
 - TLS、结构化 tracing 日志，以及原生连接池/驱动接口。
 
-第一阶段不包含多数据库、py_sql / html_sql、迁移、关联、复合主键、泛型实体、批量写入优化和自动重试。复杂查询与部分更新直接写 SQL。[架构与选型](docs/architecture.md)说明了边界和后续方向。
+第一阶段不包含多数据库、`py_sql`、迁移、关联、复合主键、泛型实体、批量写入优化和自动重试。XML 使用 Rust 表达式，不承诺直接兼容 rbatis 模板。[XML 指南](docs/xml.md)说明模板语法、优化点和边界；[架构与选型](docs/architecture.md)说明底层依赖。
 
 ## 快速开始
 
@@ -28,6 +32,63 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
 本地开发也可改用 `path = "../pgorm"`；需要固定版本时使用 Git commit 的 `rev`，避免依赖持续变化的 main 分支。
+
+在应用 crate 的 `sql/users.xml` 中写查询：
+
+```xml
+<mapper>
+  <sql id="columns">id, name, email</sql>
+  <select id="find_users">
+    SELECT <include refid="columns"/> FROM users
+    <where>
+      <if test="name.is_some()">AND name = #{name}</if>
+      <if test="!ids.is_empty()">
+        AND id IN
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+          #{id}
+        </foreach>
+      </if>
+    </where>
+    ORDER BY id
+  </select>
+</mapper>
+```
+
+Rust 函数名默认对应 XML 的 `id`，也可显式指定 `id = "find_users"`：
+
+```rust,ignore
+use pgorm::{html_sql, BoundSql, Database, Executor, FromRow, Result};
+
+#[derive(Debug, FromRow)]
+struct User { id: i64, name: String, email: Option<String> }
+
+#[html_sql("sql/users.xml")]
+async fn find_users(db: &impl Executor, name: Option<&str>, ids: &[i64])
+    -> Result<Vec<User>> {}
+
+// 同一模板可以单独预览和测试，不需要数据库。
+#[html_sql("sql/users.xml", id = "find_users")]
+fn preview_users<'a>(name: Option<&'a str>, ids: &'a [i64])
+    -> Result<BoundSql<'a>> {}
+
+let query = preview_users(Some("Alice"), &[1, 2])?;
+// query.sql(): ... WHERE name = $1 AND id IN ($2,$3) ORDER BY id
+assert_eq!(query.parameter_count(), 3);
+let users = find_users(&db, Some("Alice"), &[1, 2]).await?;
+```
+
+完整可运行示例包含 XML 查询、INSERT RETURNING、部分更新和事务：
+
+```sh
+DATABASE_URL='postgresql://user:password@localhost/db?sslmode=disable' \
+  cargo run --example xml
+```
+
+见 [examples/xml.rs](examples/xml.rs) 与 [examples/sql/users.xml](examples/sql/users.xml)。条件为空时 `<where>` 会整体省略；应用应明确决定是否允许无筛选查询。
+
+## 实体 CRUD
+
+简单单表操作也可直接使用实体接口：
 
 ```rust,no_run
 use pgorm::{Crud, Database, Entity, Executor, PageRequest};

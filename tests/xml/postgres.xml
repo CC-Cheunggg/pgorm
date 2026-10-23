@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper>
+  <sql id="columns">id, name, active, bio</sql>
+  <insert id="insert_person">
+    INSERT INTO pgorm_xml_people (<include refid="columns"/>)
+    VALUES (#{id}, #{name}, #{active}, #{bio})
+    RETURNING <include refid="columns"/>
+  </insert>
+  <select id="list_people">
+    SELECT <include refid="columns"/> FROM pgorm_xml_people
+    <where>
+      <if test="active.is_some()">AND active = #{active.unwrap()}</if>
+      <if test="ids.is_some()">
+        AND id IN
+        <foreach collection="ids.as_ref().unwrap()" item="id" open="(" close=")" separator=",">#{id}</foreach>
+      </if>
+    </where>
+    ORDER BY id
+  </select>
+  <select id="get_person">
+    SELECT <include refid="columns"/> FROM pgorm_xml_people WHERE id = #{id}
+  </select>
+  <update id="change_person">
+    UPDATE pgorm_xml_people
+    <set>
+      <if test="name.is_some()">name = #{name.as_ref().unwrap()},</if>
+      <if test="active.is_some()">active = #{active.unwrap()},</if>
+    </set>
+    WHERE id = #{id}
+    RETURNING <include refid="columns"/>
+  </update>
+  <delete id="remove_people">
+    DELETE FROM pgorm_xml_people WHERE id IN
+    <foreach collection="ids" item="id" open="(" close=")" separator=",">#{id}</foreach>
+  </delete>
+</mapper>

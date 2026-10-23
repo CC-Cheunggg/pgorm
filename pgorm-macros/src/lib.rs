@@ -1,5 +1,19 @@
 //! Derives for `pgorm`; normally imported from the runtime crate's reexports.
 
+mod html_sql;
+
+/// Compiles inline XML or an external XML mapper into a typed SQL function.
+///
+/// `#[html_sql("queries/users.xml", id = "find")]` selects a mapper statement.
+/// The id defaults to the function name. Async functions execute the statement;
+/// synchronous functions return `Result<BoundSql<'a>>` for query inspection.
+#[proc_macro_attribute]
+pub fn html_sql(attributes: TokenStream, input: TokenStream) -> TokenStream {
+    html_sql::expand(attributes.into(), input.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
 use std::collections::HashSet;
 
 use proc_macro::TokenStream;

@@ -33,6 +33,8 @@
 //! }
 //! ```
 
+mod xml;
+
 #[derive(pgorm_macros::Entity)]
 #[pgorm(table = "people", schema = "app space")]
 pub struct Person {

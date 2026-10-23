@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="../../docs/pgorm-mapper.xsd">
+  <sql id="user_columns">id, name, email</sql>
+
+  <select id="find_users">
+    SELECT <include refid="user_columns"/>
+    FROM pg_temp.pgorm_xml_users
+    <where>
+      <if test="name.is_some()">AND name = #{name}</if>
+      <if test="!ids.is_empty()">
+        AND id IN
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+          #{id}
+        </foreach>
+      </if>
+    </where>
+    <choose>
+      <when test="by_name">ORDER BY name, id</when>
+      <otherwise>ORDER BY id</otherwise>
+    </choose>
+  </select>
+
+  <insert id="insert_user">
+    INSERT INTO pg_temp.pgorm_xml_users (name, email)
+    VALUES (#{name}, #{email})
+    RETURNING <include refid="user_columns"/>
+  </insert>
+
+  <update id="update_user">
+    UPDATE pg_temp.pgorm_xml_users
+    <set>
+      <if test="name.is_some()">name = #{name},</if>
+      <if test="email.is_some()">email = #{email},</if>
+    </set>
+    WHERE id = #{id}
+  </update>
+</mapper>
